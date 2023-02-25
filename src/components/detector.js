@@ -2,7 +2,7 @@ import React from 'react';
 import * as tfjsWasm from "@tensorflow/tfjs-backend-wasm"
 import * as tfconv from '@tensorflow/tfjs-converter';
 import * as tf from '@tensorflow/tfjs-core';
-import {COCOLabels, DetectedObject} from "./util";
+import {COCOLabels, DetectedObject, NMS} from "./util";
 
 tfjsWasm.setWasmPaths(
     `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${
@@ -118,7 +118,6 @@ class YoloDetector extends React.Component{
         });
         const height = batched.shape[1];
         const width = batched.shape[2];
-        console.log(width,'x', height);
         // model returns two tensors:
         // 1. box classification score with shape of [1, 1917, 90]
         // 2. box location with shape of [1, 1917, 1, 4]
@@ -128,6 +127,7 @@ class YoloDetector extends React.Component{
         // Only use asynchronous downloads when we really have to (WebGPU) because
         // that will poll for download completion using setTimeOut which introduces
         // extra latency.
+        //output tensor is of the [1,6300,85]
         let inferenceResult;
         if (tf.getBackend() !== 'webgpu') {
             inferenceResult = outputTensor.dataSync();
@@ -144,9 +144,10 @@ class YoloDetector extends React.Component{
             this.getBoundingBox(inferenceResult, idx, scale_x, scale_y, gridWidth, gridHeight);
             idx = idx + (gridWidth*gridHeight*GridChannel*ElementNumOfAnchor);
         })
-        
-        console.log(this.detectionsList[0].state.className);
-        return [];
+        console.log("det",this.detectionsList.length)
+        const nmsDetectionList = NMS(this.detectionsList, this.nmsIouThreshold, false);
+        console.log("nms",nmsDetectionList.length);
+        return nmsDetectionList;
 
     }
    /**
@@ -161,7 +162,7 @@ class YoloDetector extends React.Component{
    * @param minScore The minimum score of the returned bounding boxes
    * of detected objects. Value between 0 and 1. Defaults to 0.5.
    */
-   async detect(image, maxNumBoxes = 20, minScore = 0.5){
+   async detect(image, maxNumBoxes, minScore){
     if (image === null) {
         this.reset();
         return [];

@@ -89,6 +89,7 @@ export class DetectedObject extends React.Component{
     constructor(props){
         super(props);
         this.state = {
+            classId: 0,
             bbox: [0, 0, 0, 0], // x, y, width, height
             className: '',
             score: 0.0
@@ -105,3 +106,4 @@ export class DetectedObject extends React.Component{
     }
 
 }
+

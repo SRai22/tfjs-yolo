@@ -34,7 +34,6 @@ class YoloDetector extends React.Component{
     async load() {
         this.model = await tfconv.loadGraphModel(`${this.modelPath}/model.json`);
         while(this.model === null);
-        console.log("model loaded", this.model)
         const zeroTensor = tf.zeros([1, this.modelHeight, this.modelWidth, 3], 'float32');
         // Warmup the model.
         const result = this.model.execute(zeroTensor);
@@ -53,7 +52,6 @@ class YoloDetector extends React.Component{
         // Define mean and norm values
         const meanValue = tf.tensor1d([0.485, 0.456, 0.406],"float32");
         const normValue = tf.tensor1d([0.229, 0.224, 0.225],"float32");
-
         return tf.div(tf.sub(tensor, meanValue), normValue);;
     }
 
@@ -63,23 +61,18 @@ class YoloDetector extends React.Component{
             for(var grid_x=0; grid_x < gridWidth; grid_x++){
                 for(var grid_c=0; grid_c < GridChannel; grid_c++){
                     const box_confidence = data[index+4];
-                    if(box_confidence >= this.boxConfidenceThreshold){
-                        let classId = 0;
-                        let confidence = 0;
-                        for(var classIdx=0; classIdx<NumberOfClass; classIdx++){
-                            let confidenceOfClass = data[index+5+classIdx];
-                            if(confidenceOfClass > confidence){
-                                confidence = confidenceOfClass;
-                                classId = classIdx;
-                            }
-                        }
-                        if(confidence >= this.classConfidenceThreshold){
+                    if(box_confidence > this.boxConfidenceThreshold){
+                        const classProbabilities = data.slice(index + 5, index + NumberOfClass + 5);
+                        const confidence = Math.max(...classProbabilities);
+                        const classId = classProbabilities.indexOf(confidence);
+                        if((confidence*box_confidence) >= this.classConfidenceThreshold){
                             const cx = Math.floor((data[index+0]+grid_x) * scale_x);
                             const cy = Math.floor((data[index+1]+grid_y) * scale_y);
                             const w =  Math.floor((Math.exp(data[index+2]))* scale_x);
                             const h =  Math.floor((Math.exp(data[index+3]))* scale_y);
                             const x =  cx - w /2 ;
                             const y =  cy - h /2 ;
+                            console.log("cx", cx, "cy", cy, "w", w, "h", h);
                             let detection = new DetectedObject();
                             detection.state.classId = classId;
                             detection.state.bbox = [x, y, w, h];
@@ -113,30 +106,30 @@ class YoloDetector extends React.Component{
               img = tf.browser.fromPixels(img);
               img = this.normalizeTensor(img);
             }
-            // Reshape to a.
+            // Reshape to a batch
             return tf.expandDims(this.normalizeTensor(img));
         });
+        console.log("batch-shape",batched.shape);
         const height = batched.shape[1];
         const width = batched.shape[2];
-        // model returns two tensors:
-        // 1. box classification score with shape of [1, 1917, 90]
-        // 2. box location with shape of [1, 1917, 1, 4]
-        // where 1917 is the number of box detectors, 90 is the number of classes.
+        // model returns one tensor:
+        // The shape of the output tensor is [1,6300,85]
+        // where 6300 is the number of detections, 80 is the number of classes.
         // and 4 is the four coordinates of the box.
         const outputTensor = this.model.execute(batched);
         // Only use asynchronous downloads when we really have to (WebGPU) because
         // that will poll for download completion using setTimeOut which introduces
         // extra latency.
-        //output tensor is of the [1,6300,85]
         let inferenceResult;
         if (tf.getBackend() !== 'webgpu') {
             inferenceResult = outputTensor.dataSync();
         } else {
             inferenceResult = await outputTensor.data();
         }
-
+        inferenceResult = new Float32Array(inferenceResult.buffer);
+        this.detectionsList = [];
+        let idx = 0
         GridScaleList.forEach(gridScale=>{
-            let idx = 0;
             const gridWidth  = width/ gridScale;
             const gridHeight = height/ gridScale;
             const scale_x = gridScale ;

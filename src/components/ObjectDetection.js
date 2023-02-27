@@ -89,7 +89,7 @@ export function ObjectDetection(){
         className="output_canvas"
         style={{
             position: "fixed",
-            left: 640,
+            left: 0,
             top: 0,
             width: 640,
             height: 480,

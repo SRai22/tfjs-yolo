@@ -108,14 +108,16 @@ export class DetectedObject extends React.Component{
 }
 
 function CalculateIoU(obj0, obj1) {
-    const interx0 = Math.max(obj0.x, obj1.x);
-    const intery0 = Math.max(obj0.y, obj1.y);
-    const interx1 = Math.min(obj0.x + obj0.w, obj1.x + obj1.w);
-    const intery1 = Math.min(obj0.y + obj0.h, obj1.y + obj1.h);
-    if (interx1 < interx0 || intery1 < intery0) return 0;
+    const interx0 = Math.max(obj0[0], obj1[0]);
+    const intery0 = Math.max(obj0[1], obj1[1]);
+    const interx1 = Math.min(obj0[0] + obj0[2], obj1[0] + obj1[2]);
+    const intery1 = Math.min(obj0[1] + obj0[3], obj1[1] + obj1[3]);
+    if (interx1 < interx0 || intery1 < intery0) {
+        return 0;
+    }
 
-    const area0 = obj0.w * obj0.h;
-    const area1 = obj1.w * obj1.h;
+    const area0 = obj0[2] * obj0[3];
+    const area1 = obj1[2] * obj1[3];
     const areaInter = (interx1 - interx0) * (intery1 - intery0);
     const areaSum = area0 + area1 - areaInter;
 
@@ -123,10 +125,10 @@ function CalculateIoU(obj0, obj1) {
 }
 
 function compareScores(lhs, rhs){
-    if(lhs.state.score > rhs.state.score){
+    if(lhs.state.score < rhs.state.score){
         return 1;
     }
-    if(lhs.state.score < rhs.state.score){
+    if(lhs.state.score > rhs.state.score){
         return -1;
     }
     return 0;
@@ -134,19 +136,28 @@ function compareScores(lhs, rhs){
 
 export function NMS(detectionList, nmsIouThreshold, checkClassId) {
     const nmsDectectionList = []
-    detectionList.sort(compareScores);
-
+    detectionList.sort((a,b)=> b.state.score - a.state.score);
     const isMerged = new Array(detectionList.length).fill(false);
     for (let indexHighScore = 0; indexHighScore < detectionList.length; indexHighScore++) {
-        const candidates = [];
+        let candidates = [];
         if (isMerged[indexHighScore]) continue;
         candidates.push(detectionList[indexHighScore]);
         for (let indexLowScore = indexHighScore + 1; indexLowScore < detectionList.length; indexLowScore++) {
             if (isMerged[indexLowScore]) continue;
             if (checkClassId && detectionList[indexHighScore].state.classId !== 
                                 detectionList[indexLowScore].state.classId) continue;
-            if (CalculateIoU(detectionList[indexHighScore], detectionList[indexLowScore]) > nmsIouThreshold) {
-                candidates.push(detectionList[indexLowScore]);
+            if (CalculateIoU(detectionList[indexHighScore].state.bbox, 
+                             detectionList[indexLowScore].state.bbox) > nmsIouThreshold) {
+                //candidates.push(detectionList[indexLowScore]);
+                let det = new DetectedObject(); 
+                det.state.bbox[0] = Math.min(detectionList[indexHighScore].state.bbox[0], detectionList[indexLowScore].state.bbox[0]);
+                det.state.bbox[1] = Math.min(detectionList[indexHighScore].state.bbox[1], detectionList[indexLowScore].state.bbox[1]);
+                det.state.bbox[2] = Math.max(detectionList[indexHighScore].state.bbox[2], detectionList[indexLowScore].state.bbox[2]);
+                det.state.bbox[3] = Math.max(detectionList[indexHighScore].state.bbox[3], detectionList[indexLowScore].state.bbox[3]);
+                det.state.score = Math.max(detectionList[indexHighScore].state.score, detectionList[indexLowScore].state.score);
+                det.state.classId = detectionList[indexHighScore].state.classId;
+                det.state.className = detectionList[indexHighScore].state.className;
+                candidates.push(det);
                 isMerged[indexLowScore] = true;
             }
         }
@@ -173,17 +184,19 @@ export const drawDetections = (detections, ctx) =>{
       // Extract boxes and classes
       const [x, y, width, height] = prediction.state.bbox; 
       const text = prediction.state.className; 
-      // Set styling
-      const color = COLOR_PALETTE[i]
-      ctx.strokeStyle = color
-      ctx.font = '18px Arial';
-  
-      // Draw rectangles and text
-      ctx.beginPath();   
-      ctx.fillStyle = color
-      ctx.fillText(text, x, y);
-      ctx.rect(x, y, width, height); 
-      ctx.stroke();
-      i++;
+      if(text === 'person'){
+        // Set styling
+        const color = COLOR_PALETTE[i]
+        ctx.strokeStyle = color
+        ctx.font = '18px Arial';
+    
+        // Draw rectangles and text
+        ctx.beginPath();   
+        ctx.fillStyle = color
+        ctx.fillText(text, x, y);
+        ctx.rect(x, y, width, height); 
+        ctx.stroke();
+        i++;
+      }
     });
 }

@@ -74,7 +74,7 @@ export function ObjectDetection(){
             onFrame: async () =>{
                 await renderResult(webcamRef.current.video);
             },
-            facingMode:"user",
+            facingMode:"environment",
             width: 640,
             height: 480
         });

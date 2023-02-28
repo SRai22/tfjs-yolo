@@ -184,7 +184,7 @@ export const drawDetections = (detections, ctx) =>{
       // Extract boxes and classes
       const [x, y, width, height] = prediction.state.bbox; 
       const text = prediction.state.className; 
-      if(text === 'person'){
+      if(text){
         // Set styling
         const color = COLOR_PALETTE[i]
         ctx.strokeStyle = color

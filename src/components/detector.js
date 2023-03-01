@@ -48,11 +48,12 @@ class YoloDetector extends React.Component{
     }
 
     normalizeTensor(tensor){
-        tf.cast(tensor, 'float32');
-        // Define mean and norm values
+        tensor = tf.cast(tensor, 'float32');
+        //Define mean and norm values
         const meanValue = tf.tensor1d([0.485, 0.456, 0.406],"float32");
         const normValue = tf.tensor1d([0.229, 0.224, 0.225],"float32");
-        return tf.div(tf.sub(tensor, meanValue), normValue);;
+        return tf.div(tf.sub(tensor, meanValue), normValue);
+        //return tf.cast(tensor, 'float32');
     }
 
     getBoundingBox(data, idx ,scale_x, scale_y, gridWidth, gridHeight){

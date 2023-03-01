@@ -9,7 +9,7 @@ export function ObjectDetection(){
     const webcamRef = useRef(null);
     const detector = useRef(null);
     const canvasRef = useRef(null);
-    let stats = new setupStats();
+    let stats;
     let startInferenceTime, numInferences = 0;
     let inferenceTimeSum = 0, lastPanelUpdate = 0;
 
@@ -41,7 +41,7 @@ export function ObjectDetection(){
                 detections = await detector.current.detect(video);
             }catch(error){
                 detector.current.dispose();
-                detector = null;
+                detector.current = null;
                 alert(error);
             }
             endEstimateDetectionStats();
@@ -70,6 +70,7 @@ export function ObjectDetection(){
       }, []);
 
     const runDetection =() =>{
+        stats = new setupStats();
         const camera = new Camera(webcamRef.current.video,{
             onFrame: async () =>{
                 await renderResult(webcamRef.current.video);
